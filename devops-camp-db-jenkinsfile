@@ -2,7 +2,6 @@ pipeline {
     agent {
         label 'jenkins-agent'
     }
-    //TODO: add environment variables
     environment {
         PIPELINE_HASH = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
         HARBOR_REGISTRY = 'harbor.dev.afsmtddso.com'
@@ -24,6 +23,14 @@ pipeline {
                     script {
                         env.BUILD_DB = sh(script: 'python check_harbor_db.py -h $COMMIT_HASH -i $DB_IMAGE_NAME -r $HARBOR_REGISTRY -p $HARBOR_PROJECT -c ${USERNAME}:${PASSWORD}', returnStdout: true).trim()
                     }
+                }
+            }
+        }
+        stage('Security scanning') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'jpadhiar-harbor-auth', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
+                    echo "Scanning $DB_IMAGE_NAME image"
+                    sh 'python harbor_scanner.py -i $DB_IMAGE_NAME -r $HARBOR_REGISTRY -p $HARBOR_PROJECT -c ${USERNAME}:${PASSWORD}'
                 }
             }
         }
@@ -60,14 +67,6 @@ pipeline {
                           }
                       }
                   }
-              stage('Security scanning') {
-                steps {
-                    withCredentials([usernamePassword(credentialsId: 'jpadhiar-harbor-auth', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
-                      echo "Scanning $DB_IMAGE_NAME image"
-                      sh 'python harbor_scanner.py -i $DB_IMAGE_NAME -r $HARBOR_REGISTRY -p $HARBOR_PROJECT -c ${USERNAME}:${PASSWORD}'
-                    }
-                  }
-                }
               }
               stage('Deploy') {
                   steps {
